@@ -1,0 +1,21 @@
+[bundle]
+identifier = "dev.harmeepatel.cull"
+publisher = "Harmee Patel"
+copyright = "2026 Harmee Patel"
+category = "Productivity"
+short_description = "Sort photos into year/month/day folders."
+
+[application]
+name = "cull"
+default_platform = "desktop"
+out_dir = "dist"
+
+[web.app]
+title = "cull"
+
+[web.resource]
+style = []
+script = []
+
+[web.resource.dev]
+script = []

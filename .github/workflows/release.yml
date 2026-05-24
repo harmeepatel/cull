@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest   # Apple Silicon
+            artifact: cull-macos-arm64
+          - os: macos-13       # Intel
+            artifact: cull-macos-x64
+          - os: windows-latest
+            artifact: cull-windows-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install dioxus-cli
+        run: cargo install dioxus-cli --locked
+
+      - name: Bundle (macOS)
+        if: runner.os == 'macOS'
+        run: dx bundle --release
+
+      - name: Bundle (Windows)
+        if: runner.os == 'Windows'
+        run: dx bundle --release
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP=$(find dist -name "*.app" | head -1)
+          zip -r ${{ matrix.artifact }}.zip "$APP"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Recurse dist -Filter "*.exe" | Select-Object -First 1
+          Compress-Archive -Path $exe.FullName -DestinationPath "${{ matrix.artifact }}.zip"
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}.zip
+          generate_release_notes: true
