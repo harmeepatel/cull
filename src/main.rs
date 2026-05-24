@@ -1,7 +1,7 @@
 #![allow(warnings, dead_code)]
 use std::path::PathBuf;
-use std::sync::mpsc;
 
+use crossbeam_channel;
 use dioxus::desktop::{Config, WindowBuilder};
 use dioxus::html::{FileData, HasFileData};
 use dioxus::prelude::*;
@@ -115,7 +115,7 @@ fn App() -> Element {
         phase.set(Phase::Sorting);
 
         spawn(async move {
-            let (tx, rx) = mpsc::channel::<SortEvent>();
+            let (tx, rx) = crossbeam_channel::unbounded::<SortEvent>();
             let dest_clone = d.clone();
             std::thread::spawn(move || {
                 sorter::sort_photos(paths, dest_clone, m, tx);

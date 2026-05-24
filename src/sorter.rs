@@ -1,13 +1,16 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::Sender;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use chrono::{Datelike, NaiveDate};
+use crossbeam_channel::Sender;
 use rayon::prelude::*;
 
 #[derive(Debug)]
 pub enum SortEvent {
     Progress { done: usize, total: usize },
-    Done { ok: usize, skipped: usize, errors: usize },
+    Done { ok: usize, errors: usize },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -64,21 +67,15 @@ fn unique_path(base: PathBuf) -> PathBuf {
     }
 }
 
-pub fn sort_photos(
-    files: Vec<PathBuf>,
-    dest: PathBuf,
-    mode: SortMode,
-    tx: Sender<SortEvent>,
-) {
+pub fn sort_photos(files: Vec<PathBuf>, dest: PathBuf, mode: SortMode, tx: Sender<SortEvent>) {
     let total = files.len();
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Arc;
 
     let done = Arc::new(AtomicUsize::new(0));
     let ok = Arc::new(AtomicUsize::new(0));
-    let skipped = Arc::new(AtomicUsize::new(0));
     let errors = Arc::new(AtomicUsize::new(0));
-    let tx = Arc::new(std::sync::Mutex::new(tx));
+    // Cache dirs we've already created — avoids redundant syscalls when
+    // many photos share the same date (the common case for camera imports).
+    let created_dirs: Arc<Mutex<HashSet<PathBuf>>> = Arc::new(Mutex::new(HashSet::new()));
 
     files.par_iter().for_each(|src| {
         let date = extract_date(src).unwrap_or_else(|| chrono::Local::now().date_naive());
@@ -88,19 +85,24 @@ pub fn sort_photos(
             .join(date.format("%B").to_string())
             .join(date.day().to_string());
 
-        let result = (|| -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-            std::fs::create_dir_all(&target_dir)?;
+        let result = (|| -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            // Only call create_dir_all once per unique directory.
+            let is_new = created_dirs.lock().unwrap().insert(target_dir.clone());
+            if is_new {
+                std::fs::create_dir_all(&target_dir)?;
+            }
+
             let base = target_dir.join(filename);
             let target = unique_path(base);
             match mode {
-                SortMode::Copy => std::fs::copy(src, &target).map(|_| ())?,
+                SortMode::Copy => { std::fs::copy(src, &target).map(|_| ())?; }
                 SortMode::Move => std::fs::rename(src, &target).or_else(|_| {
                     // rename fails across filesystems — fall back to copy+delete
                     std::fs::copy(src, &target).map(|_| ())?;
                     std::fs::remove_file(src)
                 })?,
             }
-            Ok(true)
+            Ok(())
         })();
 
         match result {
@@ -108,13 +110,13 @@ pub fn sort_photos(
             Err(_) => { errors.fetch_add(1, Ordering::Relaxed); }
         }
 
+        // crossbeam Sender is Sync — no mutex needed.
         let d = done.fetch_add(1, Ordering::Relaxed) + 1;
-        let _ = tx.lock().unwrap().send(SortEvent::Progress { done: d, total });
+        let _ = tx.send(SortEvent::Progress { done: d, total });
     });
 
-    let _ = tx.lock().unwrap().send(SortEvent::Done {
-        ok: ok.load(std::sync::atomic::Ordering::Relaxed),
-        skipped: skipped.load(std::sync::atomic::Ordering::Relaxed),
-        errors: errors.load(std::sync::atomic::Ordering::Relaxed),
+    let _ = tx.send(SortEvent::Done {
+        ok: ok.load(Ordering::Relaxed),
+        errors: errors.load(Ordering::Relaxed),
     });
 }
