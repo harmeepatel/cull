@@ -17,7 +17,7 @@ jobs:
           - os: macos-latest        # Apple Silicon
             target: aarch64-apple-darwin
             artifact: cull-macos-arm64
-          - os: macos-13            # Intel
+          - os: macos-latest        # cross-compile Intel from ARM runner
             target: x86_64-apple-darwin
             artifact: cull-macos-x64
           - os: windows-latest      # 64-bit (Windows 10/11)

@@ -12,6 +12,7 @@ mod sorter;
 
 use sorter::{SortEvent, SortMode};
 
+
 fn main() {
     let window = WindowBuilder::new()
         .with_transparent(true)
@@ -27,8 +28,8 @@ fn apply_blur() {
     unsafe {
         use cocoa::base::{id, nil, NO};
         use cocoa::foundation::NSRect;
-        use objc::*;
         use dioxus_desktop::{tao::platform::macos::WindowExtMacOS as _, window};
+        use objc::*;
 
         let desktop = window();
         let ns_window = desktop.window.ns_window() as id;
@@ -58,9 +59,11 @@ enum Phase {
 
 #[component]
 fn App() -> Element {
-    use_effect(move || { apply_blur(); });
+    use_effect(move || {
+        apply_blur();
+    });
 
-    const BG: &str = "var(--layer2)";
+    const BG: &str = "var(--toggle-bg)";
     const HIGHLIGHT: &str = "rgba(var(--highlight), var(--alpha))";
 
     let mut drop_bg = use_signal(|| BG.to_string());
@@ -91,7 +94,10 @@ fn App() -> Element {
             .map(|f| f.path())
             .filter(|p| {
                 matches!(
-                    p.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(),
+                    p.extension()
+                        .and_then(|e| e.to_str())
+                        .map(|e| e.to_ascii_lowercase())
+                        .as_deref(),
                     // JPEG / common
                     Some("jpg") | Some("jpeg") | Some("png") | Some("webp") |
                     Some("heic") | Some("heif") | Some("tiff") | Some("tif") |
@@ -150,6 +156,19 @@ fn App() -> Element {
         main {
             div { id: "top-bar",
                 div { id: "dest-row",
+                    svg {
+                        id: "folder-icon",
+                        xmlns: "http://www.w3.org/2000/svg",
+                        fill: "none",
+                        view_box: "0 0 24 24",
+                        stroke_width: "1.5",
+                        stroke: "currentColor",
+                        path {
+                            stroke_linecap: "round",
+                            stroke_linejoin: "round",
+                            d: "M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"
+                        }
+                    }
                     span { id: "dest-path", title: "{dest_display}", "{dest_display}" }
                     button {
                         id: "choose-btn",
@@ -163,23 +182,26 @@ fn App() -> Element {
                     }
                 }
                 div { id: "mode-row",
-                    label {
-                        input {
-                            r#type: "radio",
-                            name: "mode",
-                            checked: *mode.read() == SortMode::Copy,
-                            onchange: move |_| mode.set(SortMode::Copy),
-                        }
-                        " Copy"
+                    span {
+                        class: if *mode.read() == SortMode::Copy { "mode-label active" } else { "mode-label" },
+                        "Copy"
                     }
-                    label {
-                        input {
-                            r#type: "radio",
-                            name: "mode",
-                            checked: *mode.read() == SortMode::Move,
-                            onchange: move |_| mode.set(SortMode::Move),
+                    label { class: "toggle-label",
+                        div { class: "toggle",
+                            input {
+                                class: "toggle-state",
+                                r#type: "checkbox",
+                                checked: *mode.read() == SortMode::Move,
+                                onchange: move |_| mode.set(
+                                    if *mode.read() == SortMode::Copy { SortMode::Move } else { SortMode::Copy }
+                                ),
+                            }
+                            div { class: "indicator" }
                         }
-                        " Move"
+                    }
+                    span {
+                        class: if *mode.read() == SortMode::Move { "mode-label active" } else { "mode-label" },
+                        "Move"
                     }
                 }
             }

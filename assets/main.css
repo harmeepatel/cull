@@ -8,7 +8,7 @@
 :root {
     --bg: 255, 255, 255;
     --alpha: 0.5;
-    --ratio: 1.618;
+    --ratio: 1.333;
     --layer1: rgba(var(--bg), calc(var(--alpha)/var(--ratio)));
     --layer2: rgba(var(--bg), var(--alpha));
     --layer3: rgba(var(--bg), calc(var(--alpha)*var(--ratio)));
@@ -26,6 +26,9 @@
     --gap-by-ratio2: calc(var(--gap)/(2*var(--ratio)));
     --radius: calc(var(--gap)/3);
     --radius-md: calc(var(--radius)*var(--ratio));
+    --toggle-bg: #ecf0f3;
+    --toggle-light: #ffffff;
+    --toggle-dark: #d1d9e6;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,6 +37,9 @@
         --alpha: 0.35;
         --color-text: white;
         --highlight: 23, 154, 255;
+        --toggle-bg: #252525;
+        --toggle-light: #3a3a3a;
+        --toggle-dark: #141414;
     }
 }
 
@@ -63,52 +69,112 @@ main {
         align-items: center;
         gap: var(--gap-by-ratio);
 
+        #folder-icon {
+            flex-shrink: 0;
+            width: calc(var(--font-base) * 1.2);
+            height: calc(var(--font-base) * 1.2);
+            opacity: 0.7;
+        }
+
         #dest-path {
             flex: 1;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            opacity: 0.7;
-            font-size: var(--font-sm);
+            font-size: var(--font-base);
         }
 
         #choose-btn {
             all: unset;
-            background: var(--layer2);
+            background: var(--toggle-bg);
             padding: var(--gap-by-ratio2) var(--gap-by-ratio);
-            border: 1pt solid var(--color-text);
             border-radius: var(--radius);
             cursor: pointer;
             white-space: nowrap;
             font-size: var(--font-sm);
-            box-shadow: var(--shadow-xs);
+            box-shadow:
+                -4px -2px 6px 0px var(--toggle-light),
+                4px 2px 8px 0px var(--toggle-dark);
+            transition: box-shadow 0.15s;
 
             &:hover {
-                transition: 0.15s;
-                background: var(--layer3);
+                box-shadow:
+                    -2px -1px 4px 0px var(--toggle-light),
+                    2px 1px 4px 0px var(--toggle-dark),
+                    2px 2px 3px 0px var(--toggle-dark) inset,
+                    -2px -2px 3px 0px var(--toggle-light) inset;
+            }
+
+            &:active {
+                box-shadow:
+                    3px 3px 6px 0px var(--toggle-dark) inset,
+                    -3px -3px 6px 0px var(--toggle-light) inset;
             }
         }
     }
 
     #mode-row {
         display: flex;
-        gap: var(--gap);
-        font-size: var(--font-sm);
+        align-items: center;
+        gap: var(--gap-by-ratio);
 
-        label {
-            display: flex;
+        .mode-label {
+            font-size: var(--font-sm);
+            opacity: 0.85;
+            transition: color 0.3s, opacity 0.3s;
+
+            &.active {
+                color: rgb(var(--highlight));
+                opacity: 1;
+            }
+        }
+
+        .toggle-label {
+            display: inline-flex;
             align-items: center;
-            gap: var(--gap-by-ratio2);
             cursor: pointer;
+        }
+
+        .toggle {
+            isolation: isolate;
+            position: relative;
+            height: 22px;
+            width: 44px;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow:
+                -6px -3px 8px 0px var(--toggle-light),
+                6px 3px 10px 0px var(--toggle-dark),
+                3px 3px 4px 0px var(--toggle-dark) inset,
+                -3px -3px 4px 0px var(--toggle-light) inset;
+        }
+
+        .toggle-state {
+            display: none;
+        }
+
+        .indicator {
+            height: 100%;
+            width: 200%;
+            background: var(--toggle-bg);
+            border-radius: 14px;
+            transform: translate3d(-75%, 0, 0);
+            transition: transform 0.4s cubic-bezier(0.85, 0.05, 0.18, 1.35);
+            box-shadow: -6px -3px 8px 0px var(--toggle-light), 6px 3px 10px 0px var(--toggle-dark);
+        }
+
+        .toggle-state:checked~.indicator {
+            transform: translate3d(25%, 0, 0);
         }
     }
 
     #drop-area {
         flex: 1;
-        outline: 1pt solid var(--color-text);
         border-radius: var(--radius-md);
-        box-shadow: var(--shadow);
         transition: background 0.15s;
+        box-shadow:
+            8px 8px 16px 0px var(--toggle-dark) inset,
+            -8px -8px 16px 0px var(--toggle-light) inset;
 
         label {
             font-size: calc(var(--font-base) * 1.1);
